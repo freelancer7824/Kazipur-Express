@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KAZIPUR EXPRESS | নির্ভীক সাংবাদিকতা ২৪/৭</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getFirestore, collection, onSnapshot, query, orderBy, doc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+        // --- REPLACE WITH YOUR FIREBASE CONFIG ---
+        const firebaseConfig = {
+    apiKey: "AIzaSyDOJaV7zMLhtA-_z1nkcdbtaa3w7M_0Fh4",
+    authDomain: "money-generate-dbab3.firebaseapp.com",
+    databaseURL: "https://money-generate-dbab3-default-rtdb.firebaseio.com",
+    projectId: "money-generate-dbab3",
+    storageBucket: "money-generate-dbab3.firebasestorage.app",
+    messagingSenderId: "579756089926",
+    appId: "1:579756089926:web:abbe35377e3657889be047",
+    measurementId: "G-PQW2KF642W"
+};
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        // Global news array to handle filtering/searching
+        let allNewsData = [];
+
+        // 1. Fetch Ticker Text from Firebase (settings/ticker)
+        onSnapshot(doc(db, "settings", "ticker"), (docSnap) => {
+            if (docSnap.exists()) {
+                document.getElementById('tickerText').innerText = docSnap.data().text;
+            }
+        });
+        // --- Fetch Footer Info from Firebase (settings/footer) ---
+onSnapshot(doc(db, "settings", "footer"), (docSnap) => {
+    if (docSnap.exists()) {
+        const data = docSnap.data();
+        
+        // Update elements
+        if (data.about) document.getElementById('footerAbout').innerText = data.about;
+        if (data.contact) document.getElementById('footerContact').innerHTML = `<i class="fas fa-envelope mr-2"></i> ${data.contact}`;
+        if (data.copyright) document.getElementById('footerCopyright').innerText = `© ${new Date().getFullYear()} ${data.copyright}`;
+        
+        // Render Social Icons
+        const socialContainer = document.getElementById('footerSocials');
+        socialContainer.innerHTML = ''; // Clear old icons
+        
+        if (data.facebook) socialContainer.innerHTML += `<a href="${data.facebook}" target="_blank" class="text-blue-600 hover:scale-110 transition"><i class="fab fa-facebook"></i></a>`;
+        if (data.youtube) socialContainer.innerHTML += `<a href="${data.youtube}" target="_blank" class="text-red-600 hover:scale-110 transition"><i class="fab fa-youtube"></i></a>`;
+        if (data.telegram) socialContainer.innerHTML += `<a href="${data.telegram}" target="_blank" class="text-blue-400 hover:scale-110 transition"><i class="fab fa-telegram"></i></a>`;
+    }
+});
+
+        // 2. Fetch News from Firebase (Real-time)
+        const q = query(collection(db, "news"), orderBy("timestamp", "desc"));
+        onSnapshot(q, (snapshot) => {
+            allNewsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            
+            // Initial UI Render
+            renderHero(allNewsData);
+            renderNews(allNewsData);
+            checkUrlParams(); // Check if link has ?id=...
+        });
+
+        // Expose functions to window so HTML onclick works
+        window.allNewsData = () => allNewsData;
+        window.db = db;
+    </script>
+
+    <style>
+        :root { --bg-color: #ffffff; --text-color: #1a1a1a; }
+        .dark-mode { --bg-color: #121212; --text-color: #e0e0e0; }
+        body { background-color: var(--bg-color); color: var(--text-color); transition: 0.3s; font-family: 'Segoe UI', sans-serif; overflow-x: hidden; }
+        
+        @keyframes ticker { 0% { transform: translateX(100%); } 100% { transform: translateX(-100%); } }
+        .ticker-container { white-space: nowrap; overflow: hidden; }
+        .ticker-text { display: inline-block; animation: ticker 25s linear infinite; }
+        
+        .sticky-header { position: sticky; top: 0; z-index: 1000; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        #mobileMenu { transition: all 0.3s ease-in-out; max-height: 0; overflow: hidden; }
+        #mobileMenu.active { max-height: 500px; padding-bottom: 1rem; }
+        .line-clamp { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+
+        #fullNewsView { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 2000; overflow-y: auto; background: var(--bg-color); }
+    </style>
+</head>
+<body>
+
+    <div id="fullNewsView">
+        <div class="sticky top-0 bg-white dark:bg-gray-900 p-4 border-b flex items-center justify-between z-50">
+            <button onclick="closeFullNews()" class="text-xl font-bold"><i class="fas fa-arrow-left mr-2"></i> Back</button>
+            <h1 class="text-red-600 font-black">BBN NEWS</h1>
+            <button onclick="copyLink()" class="p-2 bg-gray-100 dark:bg-gray-800 rounded-full"><i class="fas fa-share-alt"></i></button>
+        </div>
+        <div class="container mx-auto px-4 py-6 max-w-4xl">
+            <div id="newsContent"></div>
+            <hr class="my-10 border-gray-300 dark:border-gray-700">
+            <h3 class="text-2xl font-bold mb-6">More News for You</h3>
+            <div id="randomSuggestions" class="grid grid-cols-1 md:grid-cols-2 gap-6 pb-20"></div>
+        </div>
+    </div>
+
+    <div id="mainWebsite">
+        <div class="bg-red-600 text-white py-1 ticker-container">
+            <div id="tickerText" class="ticker-text text-sm font-bold">
+                Loading breaking news...
+            </div>
+        </div>
+
+        <header class="sticky-header bg-white dark:bg-gray-900 border-b dark:border-gray-800">
+            <div class="container mx-auto px-4 py-3 flex justify-between items-center">
+                <h1 class="text-xl md:text-2xl font-black text-red-600 uppercase tracking-tighter cursor-pointer" onclick="window.location.href='index.html'">
+                    KAZIPUR<span class="text-gray-800 dark:text-white">EXPRESS </span>
+                </h1>
+                
+                <nav class="hidden lg:flex space-x-6 font-semibold">
+                    <a href="#" onclick="filterCategory('all')" class="hover:text-red-600">Home</a>
+                    <a href="#" onclick="filterCategory('National')" class="hover:text-red-600">National</a>
+                    <a href="#" onclick="filterCategory('International')" class="hover:text-red-600">International</a>
+                    <a href="#" onclick="filterCategory('Tech')" class="hover:text-red-600">Tech</a>
+                    <a href="#" onclick="filterCategory('Sports')" class="hover:text-red-600">Sports</a>
+                </nav>
+
+                <div class="flex items-center space-x-4">
+                    <input type="text" id="searchInput" oninput="handleSearch()" placeholder="Search news..." class="hidden md:block border rounded-full px-4 py-1 text-sm dark:bg-gray-800 focus:ring-2 focus:ring-red-600 outline-none">
+                    <button id="themeToggle" class="p-2"><i class="fas fa-moon"></i></button>
+                    <button id="menuBtn" class="lg:hidden p-2"><i class="fas fa-bars"></i></button>
+                </div>
+            </div>
+            <div id="mobileMenu" class="lg:hidden px-4">
+                <div class="py-2">
+                    <input type="text" id="mobileSearch" oninput="handleSearch(true)" placeholder="Search..." class="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-800 mb-3">
+                </div>
+                <div class="flex flex-col space-y-3 font-medium border-t py-3">
+                    <a href="#" onclick="filterCategory('all')">Home</a>
+                    <a href="#" onclick="filterCategory('National')">National</a>
+                    <a href="#" onclick="filterCategory('International')">International</a>
+                    <a href="#" onclick="filterCategory('Tech')">Tech</a>
+                    <a href="#" onclick="filterCategory('Sports')">Sports</a>
+                </div>
+            </div>
+        </header>
+
+        <main class="container mx-auto px-4 mt-6">
+            <div id="homepageContent">
+                <section id="heroSection" class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-10">
+                    <div id="mainFeature" class="lg:col-span-2 relative cursor-pointer overflow-hidden rounded-lg shadow-lg"></div>
+                    <div id="trendingSidebar" class="space-y-4"></div>
+                </section>
+
+                <section>
+                    <div class="flex justify-between items-end mb-6 border-b-2 border-red-600 pb-2">
+                        <h3 id="sectionTitle" class="text-2xl font-bold text-red-600">Latest News</h3>
+                    </div>
+                    <div id="newsGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8"></div>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // --- URL & Navigation ---
+        function checkUrlParams() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const newsId = urlParams.get('id');
+            if (newsId) {
+                openFullNews(newsId, false);
+            } else {
+                closeFullNews(false);
+            }
+        }
+
+        // --- Core Functions ---
+        function openFullNews(id, updateHistory = true) {
+            const news = window.allNewsData().find(n => n.id === id);
+            if (!news) return;
+
+            if (updateHistory) {
+                const newUrl = window.location.origin + window.location.pathname + '?id=' + id;
+                window.history.pushState({path:newUrl},'',newUrl);
+            }
+
+            document.getElementById('newsContent').innerHTML = `
+                <img src="${news.img}" class="w-full h-64 md:h-[400px] object-cover rounded-xl mb-6 shadow-lg">
+                <span class="bg-red-600 text-white px-3 py-1 text-xs font-bold uppercase rounded">${news.category}</span>
+                <h1 class="text-3xl md:text-5xl font-extrabold mt-4 leading-tight">${news.title}</h1>
+                <p class="text-gray-500 mt-2"><i class="far fa-clock mr-2"></i>Published: ${news.date}</p>
+                <div class="text-lg leading-relaxed mt-8 text-gray-700 dark:text-gray-300">
+                    ${news.desc.replace(/\n/g, '<br>')}
+                </div>
+            `;
+
+            renderSuggestions(id);
+            document.getElementById('fullNewsView').style.display = 'block';
+            document.body.style.overflow = 'hidden';
+            document.getElementById('fullNewsView').scrollTo(0, 0);
+        }
+
+        function closeFullNews(updateHistory = true) {
+            document.getElementById('fullNewsView').style.display = 'none';
+            document.body.style.overflow = 'auto';
+            if (updateHistory) {
+                window.history.pushState({}, '', window.location.pathname);
+            }
+        }
+
+        function renderSuggestions(currentId) {
+            const suggestions = window.allNewsData()
+                .filter(n => n.id !== currentId)
+                .sort(() => 0.5 - Math.random())
+                .slice(0, 4);
+            const container = document.getElementById('randomSuggestions');
+            container.innerHTML = '';
+            suggestions.forEach(news => {
+                container.innerHTML += `
+                    <div onclick="openFullNews('${news.id}')" class="flex space-x-4 cursor-pointer group">
+                        <img src="${news.img}" class="w-24 h-24 object-cover rounded-lg">
+                        <div>
+                            <h4 class="font-bold group-hover:text-red-600 transition line-clamp">${news.title}</h4>
+                            <span class="text-xs text-gray-500">${news.category}</span>
+                        </div>
+                    </div>`;
+            });
+        }
+
+        // --- Search & Filter Logic ---
+        function handleSearch(isMobile = false) {
+            const term = document.getElementById(isMobile ? 'mobileSearch' : 'searchInput').value.toLowerCase();
+            const filtered = window.allNewsData().filter(n => 
+                n.title.toLowerCase().includes(term) || 
+                n.category.toLowerCase().includes(term)
+            );
+            
+            // Hide hero on search
+            document.getElementById('heroSection').style.display = term === '' ? 'grid' : 'none';
+            document.getElementById('sectionTitle').innerText = term === '' ? 'Latest News' : `Search Results for: "${term}"`;
+            renderNews(filtered);
+        }
+
+        function filterCategory(cat) {
+            document.getElementById('mobileMenu').classList.remove('active');
+            if (cat === 'all') {
+                document.getElementById('heroSection').style.display = 'grid';
+                document.getElementById('sectionTitle').innerText = "Latest News";
+                renderNews(window.allNewsData());
+            } else {
+                document.getElementById('heroSection').style.display = 'none';
+                document.getElementById('sectionTitle').innerText = cat + " News";
+                const filtered = window.allNewsData().filter(n => n.category === cat);
+                renderNews(filtered);
+            }
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        // --- UI Rendering ---
+        function renderNews(data) {
+            const grid = document.getElementById('newsGrid');
+            grid.innerHTML = data.length ? '' : '<p class="col-span-full text-center py-10 opacity-50">No news found.</p>';
+            data.forEach(news => {
+                grid.innerHTML += `
+                    <div class="bg-white dark:bg-gray-800 rounded-xl overflow-hidden shadow hover:shadow-xl transition cursor-pointer" onclick="openFullNews('${news.id}')">
+                        <img src="${news.img}" class="w-full h-48 object-cover">
+                        <div class="p-4">
+                            <span class="text-xs font-bold text-red-600 uppercase">${news.category}</span>
+                            <h2 class="text-lg font-bold mt-2 leading-tight">${news.title}</h2>
+                            <p class="text-sm text-gray-500 mt-2 line-clamp">${news.desc}</p>
+                        </div>
+                    </div>`;
+            });
+        }
+
+        function renderHero(data) {
+            if(!data.length) return;
+            const main = data[0];
+            document.getElementById('mainFeature').innerHTML = `
+                <div onclick="openFullNews('${main.id}')">
+                    <img src="${main.img}" class="w-full h-[350px] md:h-[450px] object-cover">
+                    <div class="absolute bottom-0 p-6 bg-gradient-to-t from-black to-transparent text-white w-full">
+                        <h2 class="text-2xl md:text-4xl font-bold">${main.title}</h2>
+                    </div>
+                </div>`;
+            
+            const trending = data.slice(1, 4);
+            const sidebar = document.getElementById('trendingSidebar');
+            sidebar.innerHTML = '<h3 class="text-xl font-bold border-l-4 border-red-600 pl-2">Trending</h3>';
+            trending.forEach(item => {
+                sidebar.innerHTML += `
+                    <div onclick="openFullNews('${item.id}')" class="flex space-x-3 items-center border-b dark:border-gray-800 pb-2 cursor-pointer">
+                        <img src="${item.img}" class="w-16 h-16 object-cover rounded">
+                        <h4 class="text-sm font-bold leading-tight line-clamp">${item.title}</h4>
+                    </div>`;
+            });
+        }
+
+        function copyLink() {
+            navigator.clipboard.writeText(window.location.href);
+            alert("Link copied to clipboard!");
+        }
+
+        document.getElementById('themeToggle').addEventListener('click', () => {
+            document.body.classList.toggle('dark-mode');
+        });
+
+        document.getElementById('menuBtn').addEventListener('click', () => {
+            document.getElementById('mobileMenu').classList.toggle('active');
+        });
+
+        window.onpopstate = () => checkUrlParams();
+    </script>
+    <!------footer------>
+    <footer class="bg-gray-100 dark:bg-gray-900 mt-20 border-t dark:border-gray-800 transition-colors duration-300">
+    <div class="container mx-auto px-4 py-12">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-12 text-center md:text-left">
+            
+            <div class="space-y-4">
+                <h1 class="text-2xl font-black text-red-600 uppercase tracking-tighter" id="footerLogo">
+                    KAZIPUR<span class="text-gray-800 dark:text-white">EXPRESS </span>
+                </h1>
+                <p id="footerAbout" class="text-gray-600 dark:text-gray-400 text-sm leading-relaxed">
+                    Loading about information...
+                </p>
+            </div>
+            
+            <div>
+                <h3 class="font-bold text-lg mb-4 text-red-600">Quick Links</h3>
+                <ul class="space-y-2 text-sm font-medium">
+                    <li><a href="#" onclick="filterCategory('all')" class="hover:text-red-600 transition">Home</a></li>
+                    <li><a href="#" class="hover:text-red-600 transition">About Us</a></li>
+                    <li><a href="#" class="hover:text-red-600 transition">Contact</a></li>
+                    <li><a href="#" class="hover:text-red-600 transition">Privacy Policy</a></li>
+                </ul>
+            </div>
+            
+            <div class="space-y-4">
+                <h3 class="font-bold text-lg mb-2 text-red-600">Stay Connected</h3>
+                <p id="footerContact" class="text-gray-600 dark:text-gray-400 text-sm">Loading contact info...</p>
+                <div id="footerSocials" class="flex justify-center md:justify-start space-x-6 text-xl">
+                </div>
+            </div>
+        </div>
+        
+        <hr class="my-8 border-gray-300 dark:border-gray-700">
+        
+        <div class="flex flex-col md:flex-row justify-between items-center text-xs text-gray-500 uppercase tracking-widest font-bold">
+            <p id="footerCopyright">&copy; 2026 NEWS PORTAL. ALL RIGHTS RESERVED.</p>
+            <p class="mt-2 md:mt-0">MADE WITH <i class="fas fa-heart text-red-600"></i> BY ADMIN</p>
+        </div>
+    </div>
+</footer>
+</body>
+</html>
