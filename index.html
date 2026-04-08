@@ -121,7 +121,7 @@ onSnapshot(doc(db, "settings", "footer"), (docSnap) => {
     <div id="fullNewsView">
         <div class="sticky top-0 bg-white dark:bg-gray-900 p-4 border-b flex items-center justify-between z-50">
             <button onclick="closeFullNews()" class="text-xl font-bold"><i class="fas fa-arrow-left mr-2"></i> Back</button>
-            <h1 class="text-red-600 font-black">BBN NEWS</h1>
+            <h1 class="text-red-600 font-black">KAZIPUR EXPRESS </h1>
             <button onclick="copyLink()" class="p-2 bg-gray-100 dark:bg-gray-800 rounded-full"><i class="fas fa-share-alt"></i></button>
         </div>
         <div class="container mx-auto px-4 py-6 max-w-4xl">
@@ -130,7 +130,49 @@ onSnapshot(doc(db, "settings", "footer"), (docSnap) => {
             <h3 class="text-2xl font-bold mb-6">More News for You</h3>
             <div id="randomSuggestions" class="grid grid-cols-1 md:grid-cols-2 gap-6 pb-20"></div>
         </div>
+         <footer class="bg-gray-100 dark:bg-gray-900 mt-20 border-t dark:border-gray-800 transition-colors duration-300">
+     <div class="container mx-auto px-4 py-12">
+         <div class="grid grid-cols-1 md:grid-cols-3 gap-12 text-center md:text-left">
+             
+             <div class="space-y-4">
+                 <h1 class="text-2xl font-black text-red-600 uppercase tracking-tighter" id="footerLogo">
+                     KAZIPUR<span class="text-gray-800 dark:text-white">EXPRESS </span>
+                 </h1>
+                 <p id="footerAbout" class="text-gray-600 dark:text-gray-400 text-sm leading-relaxed">
+                     Loading about information...
+                 </p>
+             </div>
+             
+             <div>
+                 <h3 class="font-bold text-lg mb-4 text-red-600">Quick Links</h3>
+                 <ul class="space-y-2 text-sm font-medium">
+                     <li><a href="#" onclick="filterCategory('all')" class="hover:text-red-600 transition">Home</a></li>
+                     <li><a href="#" class="hover:text-red-600 transition">About Us</a></li>
+                     <li><a href="#" class="hover:text-red-600 transition">Contact</a></li>
+                     <li><a href="#" class="hover:text-red-600 transition">Privacy Policy</a></li>
+                 </ul>
+             </div>
+             
+             <div class="space-y-4">
+                 <h3 class="font-bold text-lg mb-2 text-red-600">Stay Connected</h3>
+                 <p id="footerContact" class="text-gray-600 dark:text-gray-400 text-sm">Loading contact info...</p>
+                 <div id="footerSocials" class="flex justify-center md:justify-start space-x-6 text-xl">
+                 </div>
+             </div>
+         </div>
+         
+         <hr class="my-8 border-gray-300 dark:border-gray-700">
+         
+         <div class="flex flex-col md:flex-row justify-between items-center text-xs text-gray-500 uppercase tracking-widest font-bold">
+             <p id="footerCopyright">&copy; 2026 NEWS PORTAL. ALL RIGHTS RESERVED.</p>
+             <p class="mt-2 md:mt-0">MADE WITH <i class="fas fa-heart text-red-600"></i> BY ADMIN</p>
+         </div>
+     </div>
+ </footer>
     </div>
+
+<!---footer---->
+
 
     <div id="mainWebsite">
         <div class="bg-red-600 text-white py-1 ticker-container">
