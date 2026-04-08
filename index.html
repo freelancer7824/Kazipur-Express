@@ -42,22 +42,44 @@
             }
         });
         // --- Fetch Footer Info from Firebase (settings/footer) ---
+// --- Fetch Footer Info from Firebase (settings/footer) ---
 onSnapshot(doc(db, "settings", "footer"), (docSnap) => {
     if (docSnap.exists()) {
         const data = docSnap.data();
         
-        // Update elements
-        if (data.about) document.getElementById('footerAbout').innerText = data.about;
-        if (data.contact) document.getElementById('footerContact').innerHTML = `<i class="fas fa-envelope mr-2"></i> ${data.contact}`;
-        if (data.copyright) document.getElementById('footerCopyright').innerText = `© ${new Date().getFullYear()} ${data.copyright}`;
+        // footer আইডিগুলো v3 সহ বা ছাড়া আপনার HTML এর সাথে মিলিয়ে নিন
+        const updateText = (id, text) => {
+            const el = document.getElementById(id);
+            if (el) el.innerText = text;
+        };
         
-        // Render Social Icons
-        const socialContainer = document.getElementById('footerSocials');
-        socialContainer.innerHTML = ''; // Clear old icons
+        updateText('footerAbout', data.about);
+        updateText('footerAbout_v3', data.about);
         
-        if (data.facebook) socialContainer.innerHTML += `<a href="${data.facebook}" target="_blank" class="text-blue-600 hover:scale-110 transition"><i class="fab fa-facebook"></i></a>`;
-        if (data.youtube) socialContainer.innerHTML += `<a href="${data.youtube}" target="_blank" class="text-red-600 hover:scale-110 transition"><i class="fab fa-youtube"></i></a>`;
-        if (data.telegram) socialContainer.innerHTML += `<a href="${data.telegram}" target="_blank" class="text-blue-400 hover:scale-110 transition"><i class="fab fa-telegram"></i></a>`;
+        if (data.contact) {
+            const contactHTML = `<i class="fas fa-envelope mr-2"></i> ${data.contact}`;
+            if (document.getElementById('footerContact')) document.getElementById('footerContact').innerHTML = contactHTML;
+            if (document.getElementById('footerContact_v3')) document.getElementById('footerContact_v3').innerHTML = contactHTML;
+        }
+        
+        if (data.copyright) {
+            const cpText = `© ${new Date().getFullYear()} ${data.copyright}`;
+            if (document.getElementById('footerCopyright')) document.getElementById('footerCopyright').innerText = cpText;
+            if (document.getElementById('footerCopyright_v3')) document.getElementById('footerCopyright_v3').innerText = cpText;
+        }
+        
+        // Social Icons Render
+        const renderSocials = (containerId) => {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+            container.innerHTML = '';
+            if (data.facebook) container.innerHTML += `<a href="${data.facebook}" target="_blank" class="text-blue-600 hover:scale-110 transition"><i class="fab fa-facebook"></i></a>`;
+            if (data.youtube) container.innerHTML += `<a href="${data.youtube}" target="_blank" class="text-red-600 hover:scale-110 transition"><i class="fab fa-youtube"></i></a>`;
+            if (data.telegram) container.innerHTML += `<a href="${data.telegram}" target="_blank" class="text-blue-400 hover:scale-110 transition"><i class="fab fa-telegram"></i></a>`;
+        };
+        
+        renderSocials('footerSocials');
+        renderSocials('footerSocials_v3');
     }
 });
 
@@ -393,15 +415,15 @@ onSnapshot(doc(db, "settings", "footer"), (docSnap) => {
 });
     </script>
     <!------footer------>
-    <footer class="bg-gray-100 dark:bg-gray-900 mt-20 border-t dark:border-gray-800 transition-colors duration-300">
+<footer class="bg-gray-100 dark:bg-gray-900 mt-20 border-t dark:border-gray-800 transition-colors duration-300">
     <div class="container mx-auto px-4 py-12">
         <div class="grid grid-cols-1 md:grid-cols-3 gap-12 text-center md:text-left">
             
             <div class="space-y-4">
-                <h1 class="text-2xl font-black text-red-600 uppercase tracking-tighter" id="footerLogo">
+                <h1 class="text-2xl font-black text-red-600 uppercase tracking-tighter" id="footerLogo_v3">
                     KAZIPUR<span class="text-gray-800 dark:text-white">EXPRESS </span>
                 </h1>
-                <p id="footerAbout" class="text-gray-600 dark:text-gray-400 text-sm leading-relaxed">
+                <p id="footerAbout_v3" class="text-gray-600 dark:text-gray-400 text-sm leading-relaxed">
                     Loading about information...
                 </p>
             </div>
@@ -418,8 +440,8 @@ onSnapshot(doc(db, "settings", "footer"), (docSnap) => {
             
             <div class="space-y-4">
                 <h3 class="font-bold text-lg mb-2 text-red-600">Stay Connected</h3>
-                <p id="footerContact" class="text-gray-600 dark:text-gray-400 text-sm">Loading contact info...</p>
-                <div id="footerSocials" class="flex justify-center md:justify-start space-x-6 text-xl">
+                <p id="footerContact_v3" class="text-gray-600 dark:text-gray-400 text-sm">Loading contact info...</p>
+                <div id="footerSocials_v3" class="flex justify-center md:justify-start space-x-6 text-xl">
                 </div>
             </div>
         </div>
@@ -427,7 +449,7 @@ onSnapshot(doc(db, "settings", "footer"), (docSnap) => {
         <hr class="my-8 border-gray-300 dark:border-gray-700">
         
         <div class="flex flex-col md:flex-row justify-between items-center text-xs text-gray-500 uppercase tracking-widest font-bold">
-            <p id="footerCopyright">&copy; 2026 NEWS PORTAL. ALL RIGHTS RESERVED.</p>
+            <p id="footerCopyright_v3">&copy; 2026 NEWS PORTAL. ALL RIGHTS RESERVED.</p>
             <p class="mt-2 md:mt-0">MADE WITH <i class="fas fa-heart text-red-600"></i> BY ADMIN</p>
         </div>
     </div>
