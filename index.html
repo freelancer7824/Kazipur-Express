@@ -112,6 +112,71 @@ onSnapshot(doc(db, "settings", "hero"), (heroSnap) => {
         }
     }
 });
+
+
+// --- Fetch Match Data from Firestore (settings/match) ---
+onSnapshot(doc(db, "settings", "match"), (docSnap) => {
+    const matchSection = document.getElementById('dynamicMatchSection');
+    const winnerOverlay = document.getElementById('winnerOverlay');
+    
+    if (docSnap.exists()) {
+        const data = docSnap.data();
+        
+        // 1. Toggle Show/Hide (Admin Switch)
+        if (data.show === true) {
+            matchSection.classList.remove('hidden');
+        } else {
+            matchSection.classList.add('hidden');
+            return; // Hidden thakle baki logic dorkar nei
+        }
+        
+        // 2. Set Team Names & Points
+        document.getElementById('team1Name').innerText = data.team1 || 'Team A';
+        document.getElementById('team2Name').innerText = data.team2 || 'Team B';
+        document.getElementById('matchPoints').innerText = `${data.point1 || 0} - ${data.point2 || 0}`;
+        
+        // 3. Countdown Timer Logic
+        const countdownContainer = document.getElementById('countdownContainer');
+        if (data.startTime) {
+            countdownContainer.classList.remove('hidden');
+            // Timer function call
+            updateMatchTimer(data.startTime);
+        } else {
+            countdownContainer.classList.add('hidden');
+        }
+        
+        // 4. Winner Selection
+        if (data.winner && data.winner !== "") {
+            winnerOverlay.classList.remove('hidden');
+            document.getElementById('winnerName').innerText = data.winner;
+        } else {
+            winnerOverlay.classList.add('hidden');
+        }
+    }
+});
+
+// Countdown Timer Function
+function updateMatchTimer(endTime) {
+    const timerDisplay = document.getElementById('countdownTimer');
+    const targetDate = new Date(endTime).getTime();
+    
+    const interval = setInterval(() => {
+        const now = new Date().getTime();
+        const distance = targetDate - now;
+        
+        if (distance < 0) {
+            clearInterval(interval);
+            timerDisplay.innerText = "MATCH STARTED";
+            return;
+        }
+        
+        const h = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+        const m = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+        const s = Math.floor((distance % (1000 * 60)) / 1000);
+        
+        timerDisplay.innerText = `${h}h ${m}m ${s}s`;
+    }, 1000);
+}
         // --- Fetch Footer Info from Firebase (settings/footer) ---
 // --- Fetch Footer Info from Firebase (settings/footer) ---
 onSnapshot(doc(db, "settings", "footer"), (docSnap) => {
@@ -386,6 +451,49 @@ onSnapshot(doc(db, "settings", "footer"), (docSnap) => {
         <div class="relative flex overflow-x-hidden group">
             <div id="marqueeContent" class="flex animate-marquee whitespace-nowrap py-2"></div>
             <div id="marqueeContentClone" class="flex animate-marquee whitespace-nowrap py-2" aria-hidden="true"></div>
+        </div>
+    </div>
+</section>
+
+<section id="dynamicMatchSection" class="hidden container mx-auto px-4 mt-6">
+    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 border border-gray-100 dark:border-gray-700 relative overflow-hidden">
+        
+        <div class="flex justify-center mb-4">
+            <span class="flex h-3 w-3 relative mr-2 mt-1">
+                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                <span class="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+            </span>
+            <span class="text-xs font-bold text-red-500 uppercase tracking-tighter">Live Match Update</span>
+        </div>
+
+        <div class="flex justify-between items-center text-center">
+            <div class="flex-1">
+                <h4 id="team1Name" class="text-lg font-bold text-gray-800 dark:text-white">---</h4>
+                <p class="text-xs text-gray-500 uppercase">Team A</p>
+            </div>
+
+            <div class="flex-1 flex flex-col items-center">
+                <div class="bg-indigo-100 dark:bg-indigo-900/30 px-4 py-1 rounded-full mb-2">
+                    <span id="matchPoints" class="text-xl font-black text-indigo-600 dark:text-indigo-400">0 - 0</span>
+                </div>
+                <div id="vsText" class="text-xs font-bold text-gray-400 italic">VS</div>
+            </div>
+
+            <div class="flex-1">
+                <h4 id="team2Name" class="text-lg font-bold text-gray-800 dark:text-white">---</h4>
+                <p class="text-xs text-gray-500 uppercase">Team B</p>
+            </div>
+        </div>
+
+        <div id="countdownContainer" class="mt-4 pt-4 border-t border-dashed border-gray-200 dark:border-gray-600 hidden text-center">
+            <p class="text-[10px] text-gray-400 uppercase mb-1">Match Starts In</p>
+            <div id="countdownTimer" class="text-lg font-mono font-bold text-amber-500">00:00:00</div>
+        </div>
+
+        <div id="winnerOverlay" class="absolute inset-0 bg-green-500/90 dark:bg-green-600/95 flex flex-col items-center justify-center text-white hidden z-10 animate-fade-in">
+            <span class="text-4xl mb-2">🏆</span>
+            <h3 class="text-2xl font-black uppercase tracking-widest">Winner!</h3>
+            <p id="winnerName" class="text-xl font-bold mt-1">Team Name</p>
         </div>
     </div>
 </section>
@@ -893,6 +1001,7 @@ window.addEventListener('scroll', () => {
             }
         }
         
+        
         // Track full news state
         function setFullNewsState(open) {
             isFullNewsOpen = open;
@@ -1036,6 +1145,8 @@ window.addEventListener('scroll', () => {
         
         console.log('Back navigation fix applied successfully!');
     })();
+    
+    
 </script>
 
 <!-- ============================================= -->
@@ -1132,6 +1243,8 @@ window.addEventListener('scroll', () => {
             }
         };
     })();
+    
+    
 </script>
 
 <!-- ============================================= -->
