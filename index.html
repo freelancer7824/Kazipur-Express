@@ -249,6 +249,16 @@ onSnapshot(doc(db, "settings", "footer"), (docSnap) => {
     background: white;
 }
 
+
+#modalImg {
+    transition: transform 0.3s ease;
+    cursor: grab;
+    user-select: none;
+    touch-action: none; /* ডিফল্ট ব্রাউজার জুম বন্ধ করে কাস্টম জুমের জন্য */
+}
+#modalImg:active {
+    cursor: grabbing;
+}
 /* Loop-ti jate natural mone hoy, tai linear-er jaygay ease-in-out use kora hoyeche */
     </style>
 </head>
@@ -411,6 +421,88 @@ onSnapshot(doc(db, "settings", "footer"), (docSnap) => {
             }
         }
 
+// ইমেজ ওপেন করার ফাংশন
+let scale = 1;
+let pointX = 0;
+let pointY = 0;
+let start = { x: 0, y: 0 };
+let lastTap = 0;
+let initialDistance = 0; // Pinch zoom এর জন্য
+
+function openImageModal(src) {
+    const modal = document.getElementById('imageModal');
+    const img = document.getElementById('modalImg');
+    
+    img.src = src;
+    scale = 1; 
+    pointX = 0;
+    pointY = 0;
+    updateTransform();
+    
+    modal.classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+
+    // ডাবল ট্যাপ জুম
+    img.onclick = function(e) {
+        let currentTime = new Date().getTime();
+        let tapLength = currentTime - lastTap;
+        if (tapLength < 300 && tapLength > 0) {
+            scale = (scale === 1) ? 2.5 : 1;
+            pointX = 0; pointY = 0;
+            updateTransform();
+            e.preventDefault();
+        }
+        lastTap = currentTime;
+    };
+
+    // টাচ ইভেন্টস (Pinch to Zoom & Drag)
+    img.ontouchstart = function(e) {
+        if (e.touches.length === 2) {
+            // দুই আঙুলের দূরত্ব মেপে রাখা
+            initialDistance = Math.hypot(
+                e.touches[0].pageX - e.touches[1].pageX,
+                e.touches[0].pageY - e.touches[1].pageY
+            );
+        } else {
+            start = { x: e.touches[0].clientX - pointX, y: e.touches[0].clientY - pointY };
+        }
+    };
+
+    img.ontouchmove = function(e) {
+        e.preventDefault(); // পেজ স্ক্রল বন্ধ রাখবে
+        
+        if (e.touches.length === 2) {
+            // Pinch Zoom লজিক
+            let currentDistance = Math.hypot(
+                e.touches[0].pageX - e.touches[1].pageX,
+                e.touches[0].pageY - e.touches[1].pageY
+            );
+            
+            let delta = currentDistance / initialDistance;
+            scale = Math.min(Math.max(1, scale * delta), 4); // ১ থেকে ৪ গুণের মধ্যে জুম হবে
+            initialDistance = currentDistance;
+            updateTransform();
+        } else if (scale > 1) {
+            // জুম অবস্থায় ড্র্যাগ করার লজিক
+            pointX = e.touches[0].clientX - start.x;
+            pointY = e.touches[0].clientY - start.y;
+            updateTransform();
+        }
+    };
+}
+
+function updateTransform() {
+    const img = document.getElementById('modalImg');
+    // জুম ১ এর নিচে যেন না যায় এবং জুম অবস্থায় স্মুথ মুভমেন্ট হয়
+    img.style.transform = `translate(${pointX}px, ${pointY}px) scale(${scale})`;
+}
+
+function closeImageModal() {
+  document.getElementById('imageModal').classList.add('hidden');
+  if (document.getElementById('fullNewsView').style.display !== 'block') {
+    document.body.style.overflow = 'auto';
+  }
+}
         // --- Core Functions ---
         function openFullNews(id, updateHistory = true) {
             const news = window.allNewsData().find(n => n.id === id);
@@ -420,9 +512,15 @@ onSnapshot(doc(db, "settings", "footer"), (docSnap) => {
                 const newUrl = window.location.origin + window.location.pathname + '?id=' + id;
                 window.history.pushState({path:newUrl},'',newUrl);
             }
+            
 
-            document.getElementById('newsContent').innerHTML = `
-                <img src="${news.img}" loading="" class="w-full h-64 md:h-[400px] object-cover rounded-xl mb-6 shadow-lg">
+            // openFullNews ফাংশনের ভেতরে ইমেজ ট্যাগটি এভাবে আপডেট করুন:
+document.getElementById('newsContent').innerHTML = `
+    <img src="${news.img}" 
+         onclick="openImageModal('${news.img}')" 
+         class="w-full h-64 md:h-[400px] object-cover rounded-xl mb-6 shadow-lg cursor-zoom-in" 
+         alt="News Image">
+    
                 <span class="bg-red-600 text-white px-3 py-1 text-xs font-bold uppercase rounded">${news.category}</span>
                 <h1 class="text-3xl md:text-5xl font-extrabold mt-4 leading-tight">${news.title}</h1>
                 <p class="text-gray-500 mt-2"><i class="far fa-clock mr-2"></i>Published: ${news.date}</p>
@@ -771,5 +869,305 @@ window.addEventListener('scroll', () => {
     window.allNewsData = () => allNewsData;
     window.db = db;
 </script>
+<div id="imageModal" class="fixed inset-0 z-[3000] hidden bg-black/90 flex items-center justify-center p-4 cursor-pointer" onclick="closeImageModal()">
+    <button class="absolute top-5 right-5 text-white text-3xl">&times;</button>
+    <img id="modalImg" src="" class="max-w-full max-h-full rounded-lg shadow-2xl transform transition-transform duration-300">
+</div>
+<!-- ============================================= -->
+<!-- BACK NAVIGATION FIX SOLUTION - ADD THIS SCRIPT -->
+<!-- ============================================= -->
+<script>
+    (function() {
+        // Fix back button navigation for menu and post view
+        
+        let isMenuOpen = false;
+        let isFullNewsOpen = false;
+        
+        // Track menu state
+        function setMenuState(open) {
+            isMenuOpen = open;
+            if (open) {
+                document.getElementById('mobileMenu')?.classList.add('active');
+            } else {
+                document.getElementById('mobileMenu')?.classList.remove('active');
+            }
+        }
+        
+        // Track full news state
+        function setFullNewsState(open) {
+            isFullNewsOpen = open;
+            if (open) {
+                document.body.style.overflow = 'hidden';
+            } else {
+                document.body.style.overflow = 'auto';
+            }
+        }
+        
+        // Override the existing openFullNews function to push state
+        const originalOpenFullNews = window.openFullNews;
+        window.openFullNews = function(id, updateHistory = true) {
+            if (updateHistory) {
+                // Push new state to history
+                const newUrl = window.location.origin + window.location.pathname + '?id=' + id;
+                history.pushState({ type: 'news', id: id }, '', newUrl);
+            }
+            
+            // Call original function
+            if (originalOpenFullNews) {
+                originalOpenFullNews(id, false);
+            } else {
+                // Fallback implementation
+                const news = window.allNewsData ? window.allNewsData().find(n => n.id === id) : null;
+                if (!news) return;
+                
+                document.getElementById('newsContent').innerHTML = `
+                    <img src="${news.img}" onclick="openImageModal('${news.img}')" class="w-full h-64 md:h-[400px] object-cover rounded-xl mb-6 shadow-lg cursor-zoom-in">
+                    <span class="bg-red-600 text-white px-3 py-1 text-xs font-bold uppercase rounded">${news.category}</span>
+                    <h1 class="text-3xl md:text-5xl font-extrabold mt-4 leading-tight">${news.title}</h1>
+                    <p class="text-gray-500 mt-2"><i class="far fa-clock mr-2"></i>Published: ${news.date}</p>
+                    <div class="text-lg leading-relaxed mt-8 text-gray-700 dark:text-gray-300">${news.desc.replace(/\n/g, '<br>')}</div>
+                `;
+                renderSuggestions(id);
+                document.getElementById('fullNewsView').style.display = 'block';
+                document.body.style.overflow = 'hidden';
+                document.getElementById('fullNewsView').scrollTo(0, 0);
+            }
+            
+            setFullNewsState(true);
+        };
+        
+        // Override closeFullNews function
+        const originalCloseFullNews = window.closeFullNews;
+        window.closeFullNews = function(updateHistory = true) {
+            if (updateHistory && isFullNewsOpen) {
+                // Go back in history instead of just hiding
+                history.back();
+                return;
+            }
+            
+            if (originalCloseFullNews) {
+                originalCloseFullNews(false);
+            } else {
+                document.getElementById('fullNewsView').style.display = 'none';
+                document.body.style.overflow = 'auto';
+            }
+            setFullNewsState(false);
+        };
+        
+        // Fix menu button
+        const menuBtn = document.getElementById('menuBtn');
+        const mobileMenu = document.getElementById('mobileMenu');
+        
+        if (menuBtn && mobileMenu) {
+            // Remove existing listeners and add new one
+            const newMenuBtn = menuBtn.cloneNode(true);
+            menuBtn.parentNode.replaceChild(newMenuBtn, menuBtn);
+            
+            newMenuBtn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                if (mobileMenu.classList.contains('active')) {
+                    mobileMenu.classList.remove('active');
+                    isMenuOpen = false;
+                    // Optionally remove from history or just update state
+                    if (window.location.hash === '#menu') {
+                        history.back();
+                    }
+                } else {
+                    mobileMenu.classList.add('active');
+                    isMenuOpen = true;
+                    // Push menu state to history
+                    history.pushState({ type: 'menu' }, '', window.location.pathname + '#menu');
+                }
+            });
+        }
+        
+        // Handle browser back button
+        window.addEventListener('popstate', function(event) {
+            // Check if full news view is open
+            const fullNewsView = document.getElementById('fullNewsView');
+            if (fullNewsView && fullNewsView.style.display === 'block') {
+                // Close full news view
+                fullNewsView.style.display = 'none';
+                document.body.style.overflow = 'auto';
+                setFullNewsState(false);
+                
+                // Clean up URL if needed
+                if (window.location.search.includes('?id=')) {
+                    const cleanUrl = window.location.origin + window.location.pathname;
+                    history.replaceState({}, '', cleanUrl);
+                }
+                return;
+            }
+            
+            // Check if mobile menu is open
+            if (mobileMenu && mobileMenu.classList.contains('active')) {
+                mobileMenu.classList.remove('active');
+                isMenuOpen = false;
+                return;
+            }
+            
+            // If we're on a news URL but news view is closed, clean the URL
+            if (window.location.search.includes('?id=') && fullNewsView && fullNewsView.style.display !== 'block') {
+                const cleanUrl = window.location.origin + window.location.pathname;
+                history.replaceState({}, '', cleanUrl);
+            }
+        });
+        
+        // Fix category filter to close menu properly
+        const originalFilterCategory = window.filterCategory;
+        window.filterCategory = function(cat) {
+            if (mobileMenu) mobileMenu.classList.remove('active');
+            isMenuOpen = false;
+            if (originalFilterCategory) originalFilterCategory(cat);
+        };
+        
+        // Fix any other links that might need to close menu
+        document.querySelectorAll('a[href="#"]').forEach(link => {
+            link.addEventListener('click', function() {
+                if (mobileMenu) mobileMenu.classList.remove('active');
+                isMenuOpen = false;
+            });
+        });
+        
+        // Initial state - if page loads with ?id= parameter, mark as news open
+        if (window.location.search.includes('?id=')) {
+            setFullNewsState(true);
+        }
+        
+        console.log('Back navigation fix applied successfully!');
+    })();
+</script>
+
+<!-- ============================================= -->
+<!-- ALSO ADD THIS TO YOUR MENU BUTTON IN HTML    -->
+<!-- Replace your existing menuBtn with this fix  -->
+<!-- ============================================= -->
+
+<!-- 
+    INSTRUCTION: 
+    Make sure your menu button has this structure in the HTML:
+    
+    <button id="menuBtn" class="lg:hidden p-2">
+        <i class="fas fa-bars"></i>
+    </button>
+    
+    The script above will automatically handle it.
+-->
+
+<!-- FIX FOR RENDERNEWS FUNCTION (Add this to fix more post) -->
+<script>
+    // Fix for renderNews function to work with back navigation
+    (function fixRenderNews() {
+        if (typeof window.renderNews === 'undefined') {
+            window.renderNews = function(data) {
+                currentNewsData = data;
+                const grid = document.getElementById('newsGrid');
+                if (!grid) return;
+                
+                grid.innerHTML = '';
+                displayedCount = 5;
+                
+                if (!data || !data.length) {
+                    grid.innerHTML = '<p class="col-span-full text-center py-10 opacity-500">No news found.</p>';
+                    return;
+                }
+                
+                renderSlicedPosts(0, displayedCount);
+                updateMoreButtonFix();
+            };
+        }
+        
+        window.renderSlicedPosts = function(start, end) {
+            const grid = document.getElementById('newsGrid');
+            if (!grid) return;
+            const slice = currentNewsData.slice(start, end);
+            
+            slice.forEach(news => {
+                grid.innerHTML += `
+                    <div class="bg-white dark:bg-gray-800 rounded-xl overflow-hidden shadow hover:shadow-xl transition cursor-pointer post-item" onclick="window.openFullNews('${news.id}')">
+                        <img src="${news.img}" class="w-full h-48 object-cover" onerror="this.src='https://via.placeholder.com/400x200?text=No+Image'">
+                        <div class="p-4">
+                            <span class="text-xs font-bold text-red-600 uppercase">${news.category || 'General'}</span>
+                            <h2 class="text-lg font-bold mt-2 leading-tight">${news.title}</h2>
+                            <p class="text-sm text-gray-500 mt-2 line-clamp">${(news.desc || '').substring(0, 100)}...</p>
+                        </div>
+                    </div>`;
+            });
+        };
+        
+        window.updateMoreButtonFix = function() {
+            let oldBtn = document.getElementById('loadMoreContainer');
+            if (oldBtn) oldBtn.remove();
+            
+            if (currentNewsData && currentNewsData.length > displayedCount) {
+                const gridContainer = document.getElementById('newsGrid')?.parentElement;
+                if (gridContainer && !document.getElementById('loadMoreContainer')) {
+                    const loadMoreHTML = `
+                        <div id="loadMoreContainer" class="flex justify-center mt-10 mb-10">
+                            <button onclick="window.loadMoreManualFix()" class="bg-red-600 text-white px-8 py-2 rounded-full font-bold hover:bg-red-700 transition shadow-lg active:scale-95">
+                                More Post
+                            </button>
+                        </div>`;
+                    gridContainer.insertAdjacentHTML('beforeend', loadMoreHTML);
+                }
+            }
+        };
+        
+        window.loadMoreManualFix = function() {
+            const start = displayedCount;
+            displayedCount += 5;
+            window.renderSlicedPosts(start, displayedCount);
+            document.getElementById('loadMoreContainer')?.remove();
+            if (currentNewsData && currentNewsData.length > displayedCount) {
+                window.updateMoreButtonFix();
+            }
+        };
+        
+        // Fix for checkUrlParams
+        window.checkUrlParamsFix = function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const newsId = urlParams.get('id');
+            if (newsId && window.openFullNews) {
+                window.openFullNews(newsId, false);
+            }
+        };
+    })();
+</script>
+
+<!-- ============================================= -->
+<!-- ADD THIS CSS TO FIX ANY LAYOUT ISSUES        -->
+<!-- ============================================= -->
+<style>
+    /* Fix for smooth transitions */
+    #mobileMenu {
+        transition: max-height 0.3s ease-in-out;
+        max-height: 0;
+        overflow: hidden;
+    }
+    #mobileMenu.active {
+        max-height: 500px;
+    }
+    
+    /* Fix for full news view overlay */
+    #fullNewsView {
+        transition: all 0.2s ease;
+    }
+    
+    /* Ensure proper z-index */
+    .sticky-header {
+        z-index: 1000;
+    }
+    #fullNewsView {
+        z-index: 2000;
+    }
+    
+    /* Fix for body scroll lock */
+    body.modal-open,
+    body.news-open {
+        overflow: hidden !important;
+        position: fixed;
+        width: 100%;
+    }
+</style>
 </body>
 </html>
