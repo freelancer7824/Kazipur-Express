@@ -34,6 +34,10 @@
 
         // Global news array to handle filtering/searching
         let allNewsData = [];
+        // Pagination Variables
+let displayedCount = 5; // Prothome koyta show korbe
+let totalLimit = 5; // "More Post" button ashar age koyta load hobe
+let currentNewsData = []; // Filtered data rakhar jonno
 
         // 1. Fetch Ticker Text from Firebase (settings/ticker)
         onSnapshot(doc(db, "settings", "ticker"), (docSnap) => {
@@ -394,6 +398,8 @@ onSnapshot(doc(db, "settings", "footer"), (docSnap) => {
     </div>
 
     <script>
+    
+    let displayedCount = 5;
         // --- URL & Navigation ---
         function checkUrlParams() {
             const urlParams = new URLSearchParams(window.location.search);
@@ -416,7 +422,7 @@ onSnapshot(doc(db, "settings", "footer"), (docSnap) => {
             }
 
             document.getElementById('newsContent').innerHTML = `
-                <img src="${news.img}" class="w-full h-64 md:h-[400px] object-cover rounded-xl mb-6 shadow-lg">
+                <img src="${news.img}" loading="" class="w-full h-64 md:h-[400px] object-cover rounded-xl mb-6 shadow-lg">
                 <span class="bg-red-600 text-white px-3 py-1 text-xs font-bold uppercase rounded">${news.category}</span>
                 <h1 class="text-3xl md:text-5xl font-extrabold mt-4 leading-tight">${news.title}</h1>
                 <p class="text-gray-500 mt-2"><i class="far fa-clock mr-2"></i>Published: ${news.date}</p>
@@ -473,11 +479,16 @@ onSnapshot(doc(db, "settings", "footer"), (docSnap) => {
         }
 
         function filterCategory(cat) {
+           
+    displayedCount = 5; // Reset count
+    // ... apnar baki existing code ...
+
             document.getElementById('mobileMenu').classList.remove('active');
             if (cat === 'all') {
                 document.getElementById('heroSection').style.display = 'grid';
                 document.getElementById('sectionTitle').innerText = "Latest News";
                 renderNews(window.allNewsData());
+                
             } else {
                 document.getElementById('heroSection').style.display = 'none';
                 document.getElementById('sectionTitle').innerText = cat + " News";
@@ -488,21 +499,137 @@ onSnapshot(doc(db, "settings", "footer"), (docSnap) => {
         }
 
         // --- UI Rendering ---
-        function renderNews(data) {
-            const grid = document.getElementById('newsGrid');
-            grid.innerHTML = data.length ? '' : '<p class="col-span-full text-center py-10 opacity-50">No news found.</p>';
-            data.forEach(news => {
-                grid.innerHTML += `
-                    <div class="bg-white dark:bg-gray-800 rounded-xl overflow-hidden shadow hover:shadow-xl transition cursor-pointer" onclick="openFullNews('${news.id}')">
-                        <img src="${news.img}" class="w-full h-48 object-cover">
-                        <div class="p-4">
-                            <span class="text-xs font-bold text-red-600 uppercase">${news.category}</span>
-                            <h2 class="text-lg font-bold mt-2 leading-tight">${news.title}</h2>
-                            <p class="text-sm text-gray-500 mt-2 line-clamp">${news.desc}</p>
-                        </div>
-                    </div>`;
-            });
+        // --- UI Rendering ---
+function renderNews(data) {
+    currentNewsData = data; // ফিল্টার করা ডাটা সেভ রাখা হচ্ছে
+    const grid = document.getElementById('newsGrid');
+    grid.innerHTML = '';
+    
+    // প্রতিবার রেন্ডার করার সময় কাউন্ট ৫ এ সেট হবে
+    displayedCount = 5;
+    
+    if (!data.length) {
+        grid.innerHTML = '<p class="col-span-full text-center py-10 opacity-50">No news found.</p>';
+        return;
+    }
+    
+    // প্রথম ৫টি পোস্ট রেন্ডার হবে
+    renderSlicedPosts(0, displayedCount);
+    
+    // "More Post" বাটন দেখানোর লজিক
+    updateMoreButton();
+}
+
+// পোস্টগুলো স্লাইস করে দেখানোর ফাংশন
+function renderSlicedPosts(start, end) {
+    const grid = document.getElementById('newsGrid');
+    const slice = currentNewsData.slice(start, end);
+    
+    slice.forEach(news => {
+        grid.innerHTML += `
+            <div class="bg-white dark:bg-gray-800 rounded-xl overflow-hidden shadow hover:shadow-xl transition cursor-pointer post-item" onclick="openFullNews('${news.id}')">
+                <img src="${news.img}" class="w-full h-48 object-cover">
+                <div class="p-4">
+                    <span class="text-xs font-bold text-red-600 uppercase">${news.category}</span>
+                    <h2 class="text-lg font-bold mt-2 leading-tight">${news.title}</h2>
+                    <p class="text-sm text-gray-500 mt-2 line-clamp">${news.desc}</p>
+                </div>
+            </div>`;
+    });
+}
+
+// "More Post" বাটন কন্ট্রোল লজিক (শুধুমাত্র ৫টির বেশি পোস্ট থাকলে বাটন আসবে)
+function updateMoreButton() {
+    let oldBtn = document.getElementById('loadMoreContainer');
+    if (oldBtn) oldBtn.remove();
+    
+    // যদি আরও ডাটা বাকি থাকে, তবেই বাটন দেখাবে
+    if (currentNewsData.length > displayedCount) {
+        const gridContainer = document.getElementById('newsGrid').parentElement;
+        const loadMoreHTML = `
+            <div id="loadMoreContainer" class="flex justify-center mt-10 mb-10">
+                <button onclick="loadMoreManual()" class="bg-red-600 text-white px-8 py-2 rounded-full font-bold hover:bg-red-700 transition shadow-lg active:scale-95">
+                    More Post
+                </button>
+            </div>`;
+        gridContainer.insertAdjacentHTML('beforeend', loadMoreHTML);
+    }
+}
+
+// ম্যানুয়াল বাটন ক্লিক ফাংশন
+window.loadMoreManual = () => {
+    const start = displayedCount;
+    displayedCount += 1; // পরবর্তী ৫টি ডাটা কাউন্টে যোগ হবে
+    renderSlicedPosts(start, displayedCount);
+    
+    // বাটন আপডেট বা রিমুভ করা
+    updateMoreButton();
+};
+
+// **গুরুত্বপূর্ণ**: আগে যে উইন্ডো স্ক্রল ইভেন্ট লিসেনার ছিল তা রিমুভ করে দেওয়া হয়েছে। 
+// এখন আর স্ক্রল করলে অটোমেটিক ডাটা বা এমবি খরচ হবে না।
+
+// Post-gula kete kete show korar function
+function renderSlicedPosts(start, end) {
+    const grid = document.getElementById('newsGrid');
+    const slice = currentNewsData.slice(start, end);
+    
+    slice.forEach(news => {
+        grid.innerHTML += `
+            <div class="bg-white dark:bg-gray-800 rounded-xl overflow-hidden shadow hover:shadow-xl transition cursor-pointer post-item" onclick="openFullNews('${news.id}')">
+                <img src="${news.img}" class="w-full h-48 object-cover">
+                <div class="p-4">
+                    <span class="text-xs font-bold text-red-600 uppercase">${news.category}</span>
+                    <h2 class="text-lg font-bold mt-2 leading-tight">${news.title}</h2>
+                    <p class="text-sm text-gray-500 mt-2 line-clamp">${news.desc}</p>
+                </div>
+            </div>`;
+    });
+}
+
+// "More Post" button control logic
+function updateMoreButton() {
+    let btn = document.getElementById('loadMoreBtn');
+    
+    // Jodi age theke thake muche felo, jate bar bar na ashe
+    if (btn) btn.remove();
+    
+    if (displayedCount >= 5 && displayedCount < currentNewsData.length) {
+        const gridContainer = document.getElementById('newsGrid').parentElement;
+        const loadMoreHTML = `
+            <div id="loadMoreBtn" class="flex justify-center mt-10">
+                <button onclick="loadMoreManual()" class="bg-red-600 text-white px-8 py-2 rounded-full font-bold hover:bg-red-700 transition">
+                    More Post
+                </button>
+            </div>`;
+        gridContainer.insertAdjacentHTML('beforeend', loadMoreHTML);
+    }
+}
+
+// Button-e click korle load hobe
+window.loadMoreManual = () => {
+    const start = displayedCount;
+    displayedCount += 5;
+    renderSlicedPosts(start, displayedCount);
+    document.getElementById('loadMoreBtn').remove(); // Button click er por chole jabe
+};
+
+// Scroll korle baki 5 ta load hobe (Infinite Scroll logic)
+window.addEventListener('scroll', () => {
+    if (displayedCount < 5 || (displayedCount >= 5 && !document.getElementById('loadMoreBtn'))) {
+        if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight - 500) {
+            if (displayedCount < currentNewsData.length) {
+                // Jodi 10 er niche thake tobe scroll e load hobe
+                // Athoba jodi 10 er beshi hoy kintu "More Post" button click kora hoye thake
+                const start = displayedCount;
+                displayedCount += 5;
+                renderSlicedPosts(start, displayedCount);
+                
+                if (displayedCount >= 5) updateMoreButton();
+            }
         }
+    }
+});
 
         function renderHero(data) {
             if(!data.length) return;
@@ -593,5 +720,59 @@ onSnapshot(doc(db, "settings", "footer"), (docSnap) => {
         </div>
     </div>
 </footer>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+    import { getFirestore, collection, query, orderBy, limit, onSnapshot, doc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+    
+    // 1. Firebase Configuration
+    const firebaseConfig = {
+        apiKey: "AIzaSyDOJaV7zMLhtA-_z1nkcdbtaa3w7M_0Fh4",
+        authDomain: "money-generate-dbab3.firebaseapp.com",
+        databaseURL: "https://money-generate-dbab3-default-rtdb.firebaseio.com",
+        projectId: "money-generate-dbab3",
+        storageBucket: "money-generate-dbab3.firebasestorage.app",
+        messagingSenderId: "579756089926",
+        appId: "1:579756089926:web:abbe35377e3657889be047",
+        measurementId: "G-PQW2KF642W"
+    };
+    
+    // 2. Initialize Firebase and Firestore
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    
+    // Global variables
+    let allNewsData = [];
+    let displayedCount = 5;
+    let currentNewsData = [];
+    
+    // 3. Define the query ONCE
+    // Note: Use a single declaration. If you want a limit, keep the limit(10)
+    const q = query(collection(db, "news"), orderBy("timestamp", "desc"));
+    
+    // 4. Listen for News Updates
+    onSnapshot(q, (snapshot) => {
+        allNewsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        
+        // Initial UI Render
+        renderHero(allNewsData);
+        renderNews(allNewsData);
+        checkUrlParams();
+    });
+    
+    // --- Other Snapshots (Ticker, Hero, Footer) ---
+    
+    onSnapshot(doc(db, "settings", "ticker"), (docSnap) => {
+        if (docSnap.exists()) {
+            document.getElementById('tickerText').innerText = docSnap.data().text;
+        }
+    });
+    
+    // ... (Keep the rest of your hero and footer onSnapshot logic here)
+    
+    // Expose functions to window
+    window.allNewsData = () => allNewsData;
+    window.db = db;
+</script>
 </body>
 </html>
