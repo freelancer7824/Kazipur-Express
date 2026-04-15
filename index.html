@@ -41,6 +41,73 @@
                 document.getElementById('tickerText').innerText = docSnap.data().text;
             }
         });
+        // --- Fetch Hero Settings from Firebase (settings/hero) ---
+// --- Fetch Hero Settings from Firebase ---
+onSnapshot(doc(db, "settings", "hero"), (docSnap) => {
+    const heroSection = document.getElementById('dynamicHero');
+    const heroImg1 = document.getElementById('heroBannerImg1');
+    const heroImg2 = document.getElementById('heroBannerImg2');
+    
+    if (docSnap.exists()) {
+        const data = docSnap.data();
+        
+        if (data.show === true && data.image) {
+            // Duiti image tag-ei same image url bosiye din
+            heroImg1.src = data.image;
+            heroImg2.src = data.image;
+            
+            heroSection.classList.remove('hidden');
+            heroSection.classList.add('block');
+        } else {
+            heroSection.classList.add('hidden');
+        }
+    }
+});
+
+// --- Fetch Join Person Data with Independent 'swipt' Switch ---
+onSnapshot(doc(db, "settings", "hero"), (heroSnap) => {
+    const joinPersonSection = document.getElementById('joinPersonSection');
+    
+    if (heroSnap.exists()) {
+        const settings = heroSnap.data();
+        
+        // Jodi Firebase settings-e 'swipt' field true thake
+        if (settings.swipt === true) {
+            
+            // Join Person collection theke dynamic data ana
+            onSnapshot(collection(db, "join-person"), (querySnapshot) => {
+                const marqueeContent = document.getElementById('marqueeContent');
+                const marqueeContentClone = document.getElementById('marqueeContentClone');
+                let profileHTML = "";
+                
+                if (!querySnapshot.empty) {
+                    querySnapshot.forEach((doc) => {
+                        const data = doc.data();
+                        profileHTML += `
+                            <div class="profile-card">
+                                <img src="${data.image || 'https://via.placeholder.com/150'}" class="profile-img" alt="User">
+                                <span class="text-[11px] font-bold text-gray-700 dark:text-gray-300">${data.name || 'User'}</span>
+                            </div>
+                        `;
+                    });
+                    
+                    // UI update
+                    marqueeContent.innerHTML = profileHTML;
+                    marqueeContentClone.innerHTML = profileHTML;
+                    
+                    // Section show kora
+                    joinPersonSection.classList.remove('hidden');
+                } else {
+                    joinPersonSection.classList.add('hidden');
+                }
+            });
+            
+        } else {
+            // Switch 'false' hole puro section hidden thakbe
+            joinPersonSection.classList.add('hidden');
+        }
+    }
+});
         // --- Fetch Footer Info from Firebase (settings/footer) ---
 // --- Fetch Footer Info from Firebase (settings/footer) ---
 onSnapshot(doc(db, "settings", "footer"), (docSnap) => {
@@ -136,6 +203,49 @@ onSnapshot(doc(db, "settings", "footer"), (docSnap) => {
     color: white !important;
     border-color: #374151 !important;
 }
+@keyframes smoothSlider {
+    0% { transform: translateX(0); }
+    20% { transform: translateX(0); }   /* 1st image kicchukhon thakbe */
+    45% { transform: translateX(-50%); } /* Slide hoye 2nd image (same image) ashbe */
+    70% { transform: translateX(-50%); } /* 2nd image thakbe */
+    100% { transform: translateX(-50%); } /* Loop repeat hobar jonno ready */
+}
+
+.slider-animation {
+    display: flex;
+    animation: smoothSlider 10s ease-in-out infinite;
+}
+
+@keyframes marquee {
+    0% { transform: translateX(0); }
+    100% { transform: translateX(-100%); }
+}
+
+.animate-marquee {
+    display: flex;
+    animation: marquee 25s linear infinite;
+}
+
+.profile-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin: 0 1.25rem;
+    min-width: 70px;
+}
+
+.profile-img {
+    width: 3.5rem;
+    height: 3.5rem;
+    border-radius: 9999px;
+    border: 2px solid #ef4444; /* Kazipur Express Red Theme */
+    padding: 2px;
+    object-fit: cover;
+    margin-bottom: 0.25rem;
+    background: white;
+}
+
+/* Loop-ti jate natural mone hoy, tai linear-er jaygay ease-in-out use kora hoyeche */
     </style>
 </head>
 <body>
@@ -236,6 +346,35 @@ onSnapshot(doc(db, "settings", "footer"), (docSnap) => {
                 </div>
             </div>
         </header>
+        
+   <section id="dynamicHero" class="hidden container mx-auto px-4 mt-4">
+    <div class="relative w-full h-[200px] md:h-[400px] overflow-hidden rounded-xl shadow-2xl bg-gray-200">
+        
+        <div id="heroSlider" class="flex h-full w-[200%] slider-animation">
+            <img id="heroBannerImg1" src="" class="w-1/2 h-full object-cover">
+            <img id="heroBannerImg2" src="" class="w-1/2 h-full object-cover">
+        </div>
+        
+        <div class="absolute inset-0 flex items-center justify-center md:justify-start md:px-12 bg-gradient-to-r from-black/50 to-transparent">
+            <div class="text-center md:text-left">
+                <button onclick="window.location.href='YOUR_LINK_HERE'" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-6 md:py-3 md:px-8 rounded-full shadow-lg transition-all transform hover:scale-105 active:scale-95 flex items-center gap-2">
+                    <i class="fas fa-paper-plane"></i> Join Now
+                </button>
+            </div>
+        </div>
+        
+    </div>
+</section>
+
+<section id="joinPersonSection" class="hidden container mx-auto px-4 mt-6">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-md p-4 overflow-hidden border border-gray-100 dark:border-gray-700">
+        <h3 class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3 ml-2">Our Community</h3>
+        <div class="relative flex overflow-x-hidden group">
+            <div id="marqueeContent" class="flex animate-marquee whitespace-nowrap py-2"></div>
+            <div id="marqueeContentClone" class="flex animate-marquee whitespace-nowrap py-2" aria-hidden="true"></div>
+        </div>
+    </div>
+</section>
 
         <main class="container mx-auto px-4 mt-6">
             <div id="homepageContent">
