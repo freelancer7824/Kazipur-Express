@@ -654,31 +654,28 @@ window.addEventListener('scroll', () => {
             });
         }
 
-        function copyLink() {
-            navigator.clipboard.writeText(window.location.href);
-            alert("Link copied to clipboard!");
-        }
-
-        document.getElementById('themeToggle').addEventListener('click', () => {
-            document.body.classList.toggle('dark-mode');
-        });
-
-        document.getElementById('menuBtn').addEventListener('click', () => {
-            document.getElementById('mobileMenu').classList.toggle('active');
-        });
-
-        window.onpopstate = () => checkUrlParams();
-        document.getElementById('themeToggle').addEventListener('click', () => {
-    const isDark = document.body.classList.toggle('dark-mode');
+       function copyLink() {
+    // বর্তমান ইউআরএল প্যারামিটার থেকে আইডি বের করা
+    const urlParams = new URLSearchParams(window.location.search);
+    const newsId = urlParams.get('id');
     
-    // আইকন পরিবর্তন (Moon to Sun)
-    const icon = document.querySelector('#themeToggle i');
-    if (isDark) {
-        icon.classList.replace('fa-moon', 'fa-sun');
+    // নিউজ ডাটা থেকে ওই আইডির টাইটেল খুঁজে বের করা
+    const news = window.allNewsData().find(n => n.id === newsId);
+    
+    if (news) {
+        const shareText = `${news.title}\n\nবিস্তারিত পড়তে ক্লিক করুন: ${window.location.href}`;
+        
+        navigator.clipboard.writeText(shareText).then(() => {
+            alert("টাইটেলসহ লিংক কপি হয়েছে!");
+        }).catch(err => {
+            console.error('Copy failed', err);
+        });
     } else {
-        icon.classList.replace('fa-sun', 'fa-moon');
+        // যদি কোনো পোস্ট ওপেন না থাকে শুধু মেইন লিংক কপি হবে
+        navigator.clipboard.writeText(window.location.href);
+        alert("লিংক কপি হয়েছে!");
     }
-});
+}
     </script>
     <!------footer------>
 <footer class="bg-gray-100 dark:bg-gray-900 mt-20 border-t dark:border-gray-800 transition-colors duration-300">
